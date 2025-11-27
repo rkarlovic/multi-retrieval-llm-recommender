@@ -1,16 +1,14 @@
 import os
+import json
 from pathlib import Path
 from typing import List, Dict
 
 
 class MultiFileChunker:
     """
-    Multi-file chunking module compliant with the Development Document.
-    
+    Multi-file chunking module.
     RULE:
-    - Each file represents EXACTLY ONE chunk.
-    - No splitting.
-    - Chunk text = full file content.
+    - Each file = one chunk.
     """
 
     def __init__(self, folder_path: str):
@@ -18,27 +16,26 @@ class MultiFileChunker:
         if not self.folder_path.exists():
             raise FileNotFoundError(f"Folder not found: {folder_path}")
 
+    # ------------------------------
+    # Load full file content
+    # ------------------------------
     def load_text(self, file_path: Path) -> str:
-        """
-        Reads the raw text from a file.
-        """
         return file_path.read_text(encoding="utf-8")
 
+    # ------------------------------
+    # Process all files → chunks
+    # ------------------------------
     def process_files(self) -> List[Dict]:
-        """
-        Processes every text file in the folder.
-        Each file becomes exactly one chunk.
-        """
         chunks = []
-        file_list = sorted(self.folder_path.glob("*.*"))  # process all files
+        file_list = sorted(self.folder_path.glob("*.*"))
 
-        for idx, file_path in enumerate(file_list, start=1):
+        for file_path in file_list:
             raw_text = self.load_text(file_path)
 
             chunk = {
-                "id": f"{file_path.stem}_chunk_1",   # one chunk per file
-                "document_id": file_path.stem,        # document name = file name without extension
-                "chunk_index": 1,                     # always 1
+                "id": f"{file_path.stem}_chunk_1",
+                "document_id": file_path.stem,
+                "chunk_index": 1,
                 "text": raw_text
             }
 
@@ -46,16 +43,29 @@ class MultiFileChunker:
 
         return chunks
 
+    # ------------------------------
+    # Save all chunks → JSON file
+    # ------------------------------
+    def save_chunks_to_file(self, output_path: str, chunks: List[Dict]):
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with output_path.open("w", encoding="utf-8") as f:
+            json.dump(chunks, f, indent=2, ensure_ascii=False)
+
+    # ------------------------------
+    # Full pipeline
+    # ------------------------------
+    def run(self, output_path: str) -> List[Dict]:
+        chunks = self.process_files()
+        self.save_chunks_to_file(output_path, chunks)
+        return chunks
+
 
 # Example usage
 if __name__ == "__main__":
-    folder = "documents"  # folder where each document is stored
+    chunker = MultiFileChunker("corpus")
 
-    chunker = MultiFileChunker(folder)
-    output_chunks = chunker.process_files()
+    chunks = chunker.run(output_path="chunk_output/all_chunks.json")
 
-    for chunk in output_chunks:
-        print("Chunk ID:", chunk["id"])
-        print("Document ID:", chunk["document_id"])
-        print("Text Preview:", chunk["text"][:100], "...")
-        print("-----")
+    print(f"Saved {len(chunks)} file-based chunks.")

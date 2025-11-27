@@ -1,52 +1,44 @@
 import re
+import json
 from pathlib import Path
 from typing import List, Dict
+
 
 class Chunker:
     """
     Paragraph-based chunking module.
-    Compliant with Development Document (Section 2.2 - Chunking Module).
-    - Each chunk corresponds to one logical paragraph.
-    - Paragraphs are defined as text blocks separated by blank lines.
+    Chunk = full paragraph separated by blank lines.
     """
 
     def __init__(self):
         pass
 
+    # ------------------------------
+    # Load document
+    # ------------------------------
     def load_document(self, file_path: str) -> str:
-        """
-        Loads raw text from a document.
-        """
         path = Path(file_path)
         if not path.exists():
             raise FileNotFoundError(f"Document not found: {file_path}")
         return path.read_text(encoding="utf-8")
 
+    # ------------------------------
+    # Paragraph splitting
+    # ------------------------------
     def split_into_paragraphs(self, text: str) -> List[str]:
-        """
-        Splits text into paragraphs.
-        A paragraph is defined as ANY block of text separated by one or more blank lines.
-        This rule follows Option A as chosen by the user.
-        """
         # Normalize line endings
         text = text.replace("\r\n", "\n").replace("\r", "\n")
 
-        # Split on one or more blank lines
+        # Split on blank lines
         paragraphs = re.split(r"\n\s*\n", text.strip())
 
-        # Trim internal whitespace
         cleaned = [p.strip() for p in paragraphs if p.strip()]
-
         return cleaned
 
+    # ------------------------------
+    # Convert paragraphs → chunks
+    # ------------------------------
     def generate_chunks(self, paragraphs: List[str], document_id: str) -> List[Dict]:
-        """
-        Converts paragraphs into structured chunks with metadata.
-        Aligns with Development Document requirements:
-        Each chunk stores:
-        - text
-        - metadata (document_id, paragraph_index)
-        """
         chunks = []
         for idx, paragraph in enumerate(paragraphs, start=1):
             chunk = {
@@ -59,14 +51,26 @@ class Chunker:
 
         return chunks
 
-    def process_document(self, file_path: str, document_id: str) -> List[Dict]:
-        """
-        Loads → splits → chunks document into structured data.
-        This is the main function your pipeline will call.
-        """
-        raw_text = load = self.load_document(file_path)
+    # ------------------------------
+    # Save chunks to JSON file
+    # ------------------------------
+    def save_chunks_to_file(self, output_path: str, chunks: List[Dict]):
+        output_path = Path(output_path)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+
+        with output_path.open("w", encoding="utf-8") as f:
+            json.dump(chunks, f, indent=2, ensure_ascii=False)
+
+    # ------------------------------
+    # Main processing function
+    # ------------------------------
+    def process_document(self, file_path: str, document_id: str, output_path: str) -> List[Dict]:
+        raw_text = self.load_document(file_path)
         paragraphs = self.split_into_paragraphs(raw_text)
         chunks = self.generate_chunks(paragraphs, document_id)
+
+        self.save_chunks_to_file(output_path, chunks)
+
         return chunks
 
 
@@ -74,12 +78,10 @@ class Chunker:
 if __name__ == "__main__":
     chunker = Chunker()
 
-    # Replace with your file path:
-    file_path = "corpus/corpus_merged.txt"
+    chunks = chunker.process_document(
+        file_path="corpus_merged.txt",
+        document_id="destination_losinj",
+        output_path="chunk_output/corpus_merged.json"
+    )
 
-    chunks = chunker.process_document(file_path, document_id="destination_lošinj")
-
-    for chunk in chunks:
-        print(chunk["id"])
-        print(chunk["text"])
-        print("----")
+    print(f"Saved {len(chunks)} chunks.")
