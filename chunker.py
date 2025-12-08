@@ -1,4 +1,4 @@
-from langchain_text_splitter import RecursiveCharacterTextSplitter
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from pathlib import Path
 
 def get_chunks():
