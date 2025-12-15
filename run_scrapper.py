@@ -1,22 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""
-Example usage of CustomWebLoader for web scraping.
-
-This script demonstrates:
-1. Scraping a single webpage
-2. Scraping a sitemap and extracting links
-3. Bulk scraping multiple pages from a sitemap
-"""
 
 import asyncio
 import logging
+import json
 from typing import List
-
-# Import the custom web scraping utilities
-# NOTE: Adjust these import paths to match your project structure
 from scraping import CustomWebLoader
 from utils.string import ParsedHTMLScrape
+from pathlib import Path
 
 
 # Configure logging to see what's happening
@@ -25,6 +16,28 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+def save_pages_to_json(
+    pages: list[ParsedHTMLScrape],
+    output_path: str
+) -> None:
+    """
+    Save scraped pages to a JSON file.
+    """
+
+    data = [
+        {
+            "url": page.url,
+            "title": page.title,
+            "text": page.text
+        }
+        for page in pages
+    ]
+
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+
+    with open(output_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
 
 
 async def example_rag_preparation():
@@ -114,6 +127,12 @@ async def example_rag_preparation():
                 print(f"   Preview: {page.text[:150]}...")
             print()
         
+        # This is your RAG data ready to be processed
+        output_file = "output/losinj_rag_pages.json"
+        save_pages_to_json(scraped_pages, output_file)
+
+        print(f"\n💾 Saved scraped pages to: {output_file}")
+
         # This is your RAG data ready to be processed
         return scraped_pages
         
