@@ -38,7 +38,11 @@ def load_file(path: str):
         return UnstructuredMarkdownLoader(path).load()
     
     elif ext == ".json":
-        return JSONLoader(path).load()
+        return JSONLoader(
+        file_path=path,
+        jq_schema=".[]",
+        content_key="text"
+    ).load()
 
     # fallback loader for anything else
     return UnstructuredFileLoader(path).load()
