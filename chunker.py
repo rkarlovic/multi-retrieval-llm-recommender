@@ -9,6 +9,7 @@ from langchain_community.document_loaders import (
     UnstructuredHTMLLoader,
     UnstructuredMarkdownLoader,
     UnstructuredFileLoader,
+    JSONLoader
 )
 
 # --------------------------
@@ -35,6 +36,9 @@ def load_file(path: str):
 
     elif ext == ".md":
         return UnstructuredMarkdownLoader(path).load()
+    
+    elif ext == ".json":
+        return JSONLoader(path).load()
 
     # fallback loader for anything else
     return UnstructuredFileLoader(path).load()
@@ -106,7 +110,7 @@ def save_chunks_to_json(chunks, output_path="chunks.json"):
 # --------------------------
 
 if __name__ == "__main__":
-    folder_path = "corpus"   # <-- put your folder name here
+    folder_path = "output"   # <-- put your folder name here
     output_path = "chunks.json"
 
     chunks = load_and_chunk_folder(folder_path)
