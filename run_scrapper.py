@@ -150,21 +150,7 @@ async def main():
     print("WEB SCRAPING EXAMPLES")
     print("="*80)
     
-    # Run examples (comment out the ones you don't want to run)
-    
-    # Example 1: Single page
-    # await example_single_page_scrape()
-    
-    # Example 2: Sitemap scraping
-    # await example_sitemap_scraping()
-    
-    # Example 3: Filtered extraction
-    # await example_filtered_link_extraction()
-    
-    # Example 4: Bulk scraping
-    # await example_bulk_scraping()
-    
-    # Example 5: Full RAG workflow
+    # Full RAG workflow
     await example_rag_preparation()
     
     print("\n" + "="*80)
