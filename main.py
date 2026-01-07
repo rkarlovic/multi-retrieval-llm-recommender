@@ -8,6 +8,185 @@ from tfidf import TFIDFRetriever
 from embedding import EmbeddingRetriever
 
 
+def merged_retrieval(query: str, top_k: int = 5):
+    """
+    Retrieve results from all three methods (TF-IDF + 2 embedding models) and merge with deduplication.
+    
+    Args:
+        query: Search query string
+        top_k: Number of results to retrieve from each method
+        
+    Returns:
+        List of merged and deduplicated results
+    """
+    print("\n" + "="*100)
+    print(f"MERGED MULTI-RETRIEVAL SYSTEM")
+    print(f"Query: '{query}' | Top-{top_k} results per method")
+    print("="*100)
+    
+    # Initialize all three retrievers
+    print("\n[1/3] Initializing TF-IDF Retriever...")
+    tfidf = TFIDFRetriever(chunks_path="chunks.json")
+    
+    print("\n[2/3] Initializing Embedding Retriever (MiniLM)...")
+    embedding_minilm = EmbeddingRetriever(
+        model_name='sentence-transformers/all-MiniLM-L6-v2',
+        device='cpu'
+    )
+    
+    print("\n[3/3] Initializing Embedding Retriever (BGE-M3)...")
+    embedding_bge = EmbeddingRetriever(
+        model_name='BAAI/bge-m3',
+        device='cpu'
+    )
+    
+    # Retrieve results from all methods
+    print(f"\n{'─'*100}")
+    print("RETRIEVING RESULTS FROM ALL METHODS...")
+    print(f"{'─'*100}\n")
+    
+    tfidf_results = tfidf.search(query, top_k=top_k)
+    print(f"✓ TF-IDF: {len(tfidf_results)} results")
+    
+    minilm_results = embedding_minilm.search(query, top_k=top_k)
+    print(f"✓ MiniLM: {len(minilm_results)} results")
+    
+    bge_results = embedding_bge.search(query, top_k=top_k)
+    print(f"✓ BGE-M3: {len(bge_results)} results")
+    
+    # Merge and deduplicate
+    merged = merge_and_deduplicate(
+        tfidf_results, 
+        minilm_results, 
+        bge_results
+    )
+    
+    # Display merged results
+    print(f"\n{'='*100}")
+    print("🎯 MERGED RESULTS (Deduplicated)".center(100))
+    print(f"{'='*100}\n")
+    print(f"Total unique results: {len(merged)}\n")
+    
+    for result in merged:
+        sources = ", ".join(result['sources'])
+        print(f"[{result['rank']}] Sources: [{sources}] | Combined Score: {result['combined_score']:.4f}")
+        print(f"  {result['content']}")
+        print()
+    
+    return merged
+
+
+def merge_and_deduplicate(tfidf_results, minilm_results, bge_results):
+    """
+    Merge results from all three retrievers and remove duplicates.
+    
+    Deduplication is based on content similarity (first 150 chars).
+    Results that appear in multiple retrievers get higher combined scores.
+    
+    Args:
+        tfidf_results: Results from TF-IDF retriever
+        minilm_results: Results from MiniLM embedding retriever
+        bge_results: Results from BGE-M3 embedding retriever
+        
+    Returns:
+        List of merged and deduplicated results, sorted by combined score
+    """
+    # Dictionary to track unique results by content fingerprint
+    unique_results = {}
+    
+    # Helper function to normalize content for comparison
+    def get_content_fingerprint(content):
+        """Get first 150 chars, stripped and lowercased for comparison."""
+        return content.strip().lower()[:150]
+    
+    # Helper function to normalize scores (TF-IDF is 0-1 higher better, embeddings are distance lower better)
+    def normalize_score(score, method):
+        """Normalize scores to 0-1 range where higher is better."""
+        if method == 'tfidf':
+            return score  # Already 0-1, higher is better
+        else:  # embeddings (FAISS L2 distance)
+            # Convert distance to similarity (inverse and normalize)
+            # Typical L2 distances are 0-2, we'll map them
+            return max(0, 1 - (score / 2))
+    
+    # Process TF-IDF results
+    for result in tfidf_results:
+        fingerprint = get_content_fingerprint(result['full_content'])
+        normalized_score = normalize_score(result['score'], 'tfidf')
+        
+        if fingerprint not in unique_results:
+            unique_results[fingerprint] = {
+                'content': result['content'],
+                'full_content': result['full_content'],
+                'metadata': result.get('metadata', {}),
+                'sources': ['TF-IDF'],
+                'scores': {'tfidf': normalized_score},
+                'combined_score': normalized_score
+            }
+        else:
+            unique_results[fingerprint]['sources'].append('TF-IDF')
+            unique_results[fingerprint]['scores']['tfidf'] = normalized_score
+    
+    # Process MiniLM results
+    for result in minilm_results:
+        fingerprint = get_content_fingerprint(result['full_content'])
+        normalized_score = normalize_score(result['score'], 'embedding')
+        
+        if fingerprint not in unique_results:
+            unique_results[fingerprint] = {
+                'content': result['content'],
+                'full_content': result['full_content'],
+                'metadata': result.get('metadata', {}),
+                'sources': ['MiniLM'],
+                'scores': {'minilm': normalized_score},
+                'combined_score': normalized_score
+            }
+        else:
+            unique_results[fingerprint]['sources'].append('MiniLM')
+            unique_results[fingerprint]['scores']['minilm'] = normalized_score
+    
+    # Process BGE-M3 results
+    for result in bge_results:
+        fingerprint = get_content_fingerprint(result['full_content'])
+        normalized_score = normalize_score(result['score'], 'embedding')
+        
+        if fingerprint not in unique_results:
+            unique_results[fingerprint] = {
+                'content': result['content'],
+                'full_content': result['full_content'],
+                'metadata': result.get('metadata', {}),
+                'sources': ['BGE-M3'],
+                'scores': {'bge': normalized_score},
+                'combined_score': normalized_score
+            }
+        else:
+            unique_results[fingerprint]['sources'].append('BGE-M3')
+            unique_results[fingerprint]['scores']['bge'] = normalized_score
+    
+    # Calculate combined scores (average of all scores for results from multiple sources)
+    for fingerprint in unique_results:
+        scores = unique_results[fingerprint]['scores']
+        # Average score across all sources + bonus for appearing in multiple methods
+        avg_score = sum(scores.values()) / len(scores)
+        multiplier = 1 + (len(scores) - 1) * 0.1  # 10% bonus for each additional source
+        unique_results[fingerprint]['combined_score'] = avg_score * multiplier
+    
+    # Convert to list and sort by combined score (descending)
+    merged_list = list(unique_results.values())
+    merged_list.sort(key=lambda x: x['combined_score'], reverse=True)
+    
+    # Add rank
+    for rank, result in enumerate(merged_list, 1):
+        result['rank'] = rank
+    
+    print(f"\n📊 Deduplication Summary:")
+    print(f"   • Total results before deduplication: {len(tfidf_results) + len(minilm_results) + len(bge_results)}")
+    print(f"   • Unique results after deduplication: {len(merged_list)}")
+    print(f"   • Duplicates removed: {len(tfidf_results) + len(minilm_results) + len(bge_results) - len(merged_list)}")
+    
+    return merged_list
+
+
 def compare_retrievers(query: str, top_k: int = 5):
     """
     Compare TF-IDF and embedding-based retrieval for a given query.
@@ -174,16 +353,19 @@ def main():
     
     print("""
 ╔══════════════════════════════════════════════════════════════════════════════╗
-║                   RETRIEVAL METHODS COMPARISON DEMO                          ║
-║                   TF-IDF vs Semantic Embeddings                              ║
+║                   MULTI-RETRIEVAL SYSTEM WITH DEDUPLICATION                  ║
+║              TF-IDF + MiniLM + BGE-M3 Embeddings (Merged)                    ║
 ╚══════════════════════════════════════════════════════════════════════════════╝
 """)
     
-    # Single query comparison
+    # Merged retrieval with deduplication
     query = "luxury hotels with spa and wellness facilities"
-    compare_retrievers(query, top_k=5)
+    merged_results = merged_retrieval(query, top_k=5)
     
-    # Optional: Uncomment to run multiple queries
+    # Optional: Compare individual methods (uncomment to see detailed comparison)
+    # compare_retrievers(query, top_k=5)
+    
+    # Optional: Run multiple queries (uncomment to test)
     # run_multiple_queries()
 
 
