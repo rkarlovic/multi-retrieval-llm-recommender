@@ -4,19 +4,33 @@ Embedding-based retrieval using pre-built FAISS vector stores.
 For creating new vector stores, use create_vectorstores.py instead.
 """
 import os
+from typing import List
 from langchain_huggingface.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
+from langchain_core.retrievers import BaseRetriever
+from langchain_core.documents import Document
 
 
-class EmbeddingRetriever:
+class EmbeddingRetriever(BaseRetriever):
     """
     Vector embedding-based retrieval system using FAISS.
     
     Loads a pre-built FAISS vector store and performs semantic search.
+    Compatible with LangChain's MergerRetriever.
     """
     
+    model_name: str = 'sentence-transformers/all-MiniLM-L6-v2'
+    device: str = 'cpu'
+    vectorstore_path: str = None
+    top_k: int = 5
+    embeddings: HuggingFaceEmbeddings = None
+    vectorstore: FAISS = None
+    
+    class Config:
+        arbitrary_types_allowed = True
+    
     def __init__(self, model_name='sentence-transformers/all-MiniLM-L6-v2', 
-                 vectorstore_path=None, device='cpu'):
+                 vectorstore_path=None, device='cpu', top_k: int = 5, **kwargs):
         """
         Initialize the embedding retriever.
         
@@ -25,8 +39,18 @@ class EmbeddingRetriever:
             vectorstore_path: Path to saved FAISS vector store (if None, auto-detects)
             device: 'cpu' or 'cuda'
         """
-        self.model_name = model_name
-        self.device = device
+        # Auto-detect vector store path if not provided
+        if vectorstore_path is None:
+            model_short_name = self._get_model_short_name(model_name)
+            vectorstore_path = os.path.join('vector_stores', f'vectorstore_{model_short_name}')
+        
+        super().__init__(
+            model_name=model_name,
+            device=device,
+            vectorstore_path=vectorstore_path,
+            top_k=top_k,
+            **kwargs
+        )
         
         # Initialize embeddings
         print(f"Loading embedding model: {model_name}...")
@@ -35,13 +59,6 @@ class EmbeddingRetriever:
             model_kwargs={'device': device},
             encode_kwargs={'normalize_embeddings': True}
         )
-        
-        # Auto-detect vector store path if not provided
-        if vectorstore_path is None:
-            model_short_name = self._get_model_short_name(model_name)
-            vectorstore_path = os.path.join('vector_stores', f'vectorstore_{model_short_name}')
-        
-        self.vectorstore_path = vectorstore_path
         
         # Load vector store
         print(f"Loading vector store from: {vectorstore_path}...")
@@ -76,6 +93,30 @@ class EmbeddingRetriever:
             })
         
         return formatted_results
+    
+    def _get_relevant_documents(self, query: str) -> List[Document]:
+        """
+        Search for relevant chunks using semantic embeddings.
+        
+        Required by BaseRetriever for LangChain compatibility.
+        
+        Args:
+            query: Search query string
+        
+        Returns:
+            List of LangChain Document objects
+        """
+        results_with_scores = self.vectorstore.similarity_search_with_score(query, k=self.top_k)
+        
+        documents = []
+        model_short = self._get_model_short_name(self.model_name)
+        for doc, score in results_with_scores:
+            # Attach score and retriever identity for later use
+            doc.metadata['score'] = float(score)
+            doc.metadata['retriever'] = model_short
+            documents.append(doc)
+        
+        return documents
     
     @staticmethod
     def _get_model_short_name(model_name):
