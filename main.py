@@ -12,10 +12,10 @@ from langchain_classic.retrievers.document_compressors import DocumentCompressor
 from tfidf_lc_retriever import TFIDFLangChainRetriever
 
 # ===== Configurable settings =====
-TOP_K = 5
-TOP_K_TFIDF = 20
-TOP_K_MINILM = 20
-TOP_K_BGE = 20
+TOP_K = 10
+TOP_K_TFIDF = 10
+TOP_K_MINILM = 10
+TOP_K_BGE = 10
 FINGERPRINT_LEN = 200
 REDUNDANCY_THRESHOLD = 0.95
 
@@ -79,6 +79,9 @@ def merged_retrieval(query: str, top_k: int = 5):
     merged_pre = lotr.invoke(query)
     # Get results AFTER compression (deduplication)
     merged_docs = compression_retriever.invoke(query)
+    
+    # Limit to top_k final results after deduplication
+    merged_docs = merged_docs[:top_k]
 
     # Identify removed duplicates by content fingerprint
     def fp(doc):
@@ -123,9 +126,11 @@ def merged_retrieval(query: str, top_k: int = 5):
     
     # Display results
     print(f"\n{'='*100}")
-    print("🎯 MERGED RESULTS (Deduplicated)".center(100))
+    print("🎯 MERGED RESULTS (Deduplicated & Top-K Selected)".center(100))
     print(f"{'='*100}\n")
-    print(f"Total unique results: {len(merged_docs)}\n")
+    print(f"Total retrieved before deduplication: {len(merged_pre)}")
+    print(f"After deduplication: {len(merged_docs)} (top {top_k} selected)")
+    print(f"\nRetriever contributions: TF-IDF={TOP_K_TFIDF}, MiniLM={TOP_K_MINILM}, BGE-M3={TOP_K_BGE}\n")
 
     # Print duplicates summary and pairwise overlaps
     print(f"Duplicates before deduplication (cross-retriever): {duplicates_before}")
