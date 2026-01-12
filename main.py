@@ -12,9 +12,10 @@ from langchain_classic.retrievers.document_compressors import DocumentCompressor
 from tfidf_lc_retriever import TFIDFLangChainRetriever
 
 # ===== Configurable settings =====
-TOP_K_TFIDF = 5
-TOP_K_MINILM = 5
-TOP_K_BGE = 5
+TOP_K = 5
+TOP_K_TFIDF = 20
+TOP_K_MINILM = 20
+TOP_K_BGE = 20
 FINGERPRINT_LEN = 200
 REDUNDANCY_THRESHOLD = 0.95
 
@@ -366,7 +367,7 @@ def main():
     # ========================================================
     
     # Merged retrieval with deduplication
-    merged_results = merged_retrieval(query, top_k=5)
+    merged_results = merged_retrieval(query, top_k=TOP_K)
     
     # Optional: Compare all three methods individually (uncomment to see detailed comparison)
     # compare_retrievers(query, top_k=5)
