@@ -11,14 +11,43 @@ from langchain_community.document_transformers import EmbeddingsRedundantFilter
 from langchain_classic.retrievers.document_compressors import DocumentCompressorPipeline
 from tfidf_lc_retriever import TFIDFLangChainRetriever
 from retriever_comparison import compare_retrievers, run_multiple_queries
+import cohere
 
 # ===== Configurable settings =====
-TOP_K = 10
+TOP_K = 30
 TOP_K_TFIDF = 10
 TOP_K_MINILM = 10
 TOP_K_BGE = 10
 FINGERPRINT_LEN = 200
-REDUNDANCY_THRESHOLD = 0.95
+REDUNDANCY_THRESHOLD = 0.85
+COHERE_RERANK_MODEL = "rerank-english-v3.0"
+COHERE_TOP_K = 5
+
+co = cohere.ClientV2("Ebolg4Tx79anZgqfJK2BcrLnpXsuvcGeT1obe91V")
+
+
+def rerank_with_cohere(query: str, docs, top_n: int = 5):
+    """Rerank a list of LangChain Documents using Cohere and return the top_n."""
+    if not docs:
+        return []
+
+    top_n = min(top_n, len(docs))
+    doc_texts = [d.page_content for d in docs]
+
+    response = co.rerank(
+        model=COHERE_RERANK_MODEL,
+        query=query,
+        documents=doc_texts,
+        top_n=top_n
+    )
+
+    reranked = []
+    for result in response.results:
+        doc = docs[result.index]
+        doc.metadata = {**doc.metadata, "cohere_score": result.relevance_score}
+        reranked.append(doc)
+
+    return reranked
 
 
 def merged_retrieval(query: str, top_k: int = 5):
@@ -30,7 +59,7 @@ def merged_retrieval(query: str, top_k: int = 5):
         top_k: Number of results per retriever
         
     Returns:
-        List of merged documents
+        List of Cohere-reranked documents
     """
     print("\n" + "="*100)
     print(f"MULTI-RETRIEVAL SYSTEM (LangChain MergerRetriever)")
@@ -60,7 +89,7 @@ def merged_retrieval(query: str, top_k: int = 5):
     print("CREATING MERGER RETRIEVER...")
     print(f"{'─'*100}\n")
     
-    lotr = MergerRetriever(retrievers=[tfidf, embedding_minilm, embedding_bge])
+    lotr = MergerRetriever(retrievers=[embedding_minilm, embedding_bge, tfidf])
     
     # Optionally wrap with deduplication filter
     print("Adding redundant filter for deduplication...")
@@ -82,13 +111,13 @@ def merged_retrieval(query: str, top_k: int = 5):
     merged_docs = compression_retriever.invoke(query)
     
     # Limit to top_k final results after deduplication
-    merged_docs = merged_docs[:top_k]
+    dedup_docs = merged_docs[:top_k]
 
     # Identify removed duplicates by content fingerprint
     def fp(doc):
         return (doc.page_content or "").strip().lower()[:FINGERPRINT_LEN]
 
-    final_fps = {fp(d) for d in merged_docs}
+    final_fps = {fp(d) for d in dedup_docs}
     removed = [d for d in merged_pre if fp(d) not in final_fps]
 
     # Overlap analysis across retrievers (TF-IDF, MiniLM, BGE-M3)
@@ -130,7 +159,7 @@ def merged_retrieval(query: str, top_k: int = 5):
     print("🎯 MERGED RESULTS (Deduplicated & Top-K Selected)".center(100))
     print(f"{'='*100}\n")
     print(f"Total retrieved before deduplication: {len(merged_pre)}")
-    print(f"After deduplication: {len(merged_docs)} (top {top_k} selected)")
+    print(f"After deduplication: {len(dedup_docs)} (top {top_k} selected)")
     print(f"\nRetriever contributions: TF-IDF={TOP_K_TFIDF}, MiniLM={TOP_K_MINILM}, BGE-M3={TOP_K_BGE}\n")
 
     # Print duplicates summary and pairwise overlaps
@@ -152,15 +181,19 @@ def merged_retrieval(query: str, top_k: int = 5):
         print(f"      {doc.page_content[:200]}...")
         print()
     
-    for rank, doc in enumerate(merged_docs, 1):
+    print("\nRunning Cohere rerank on deduplicated results...")
+    reranked_docs = rerank_with_cohere(query, dedup_docs, top_n=COHERE_TOP_K)
+
+    for rank, doc in enumerate(reranked_docs, 1):
         score = doc.metadata.get('score', 'N/A')
         src = doc.metadata.get('source', 'unknown')
         retr = doc.metadata.get('retriever', 'unknown')
-        print(f"[{rank}] Score: {score} | Retriever: {retr} | Source: {src}")
+        co_score = doc.metadata.get('cohere_score', 'N/A')
+        print(f"[{rank}] Cohere score: {co_score} | Retriever: {retr} | Source: {src} | Orig score: {score}")
         print(f"  {doc.page_content[:200]}...")
         print()
     
-    return merged_docs
+    return reranked_docs
 
 
 def main():
