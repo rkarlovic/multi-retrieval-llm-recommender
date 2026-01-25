@@ -11,7 +11,9 @@ from langchain_community.document_transformers import EmbeddingsRedundantFilter
 from langchain_classic.retrievers.document_compressors import DocumentCompressorPipeline
 from tfidf_lc_retriever import TFIDFLangChainRetriever
 from retriever_comparison import compare_retrievers, run_multiple_queries
+from user_input import RecommendationGenerator
 import cohere
+import json
 
 # ===== Configurable settings =====
 TOP_K = 30
@@ -207,9 +209,31 @@ def main():
 ╚══════════════════════════════════════════════════════════════════════════════╝
 """)
     
-    # ==================== EDIT QUERY HERE ====================
-    query = "luxury hotels with spa and wellness facilities"
-    # ========================================================
+    # Static user request
+    user_request = "I want a luxury hotel with spa and wellness facilities"
+    print(f"\nUser request: {user_request}")
+    
+    # Get optional user context (can be expanded for personalization)
+    print("\nGenerating search query from your request...")
+    
+    # Initialize the generator to create a search query
+    generator = RecommendationGenerator()
+    
+    # Simple user context (can be made interactive or loaded from profile)
+    user_context = {
+        "preferences": {
+            "interests": ["comfort", "quality", "authentic experiences"]
+        }
+    }
+    
+    # Generate the query using LLM
+    try:
+        query = generator.generate_recommendation(user_request, user_context)
+        print(f"\n✓ Generated query: {query}\n")
+    except Exception as e:
+        print(f"\n⚠ Could not generate query with LLM: {e}")
+        print("Using your original request as the query...\n")
+        query = user_request
     
     # Merged retrieval with deduplication
     merged_results = merged_retrieval(query, top_k=TOP_K)
