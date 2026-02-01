@@ -1,0 +1,44 @@
+[
+  {
+    "query_id": "q1",
+    "query": "Hotel Bellevue luxury collection accommodation",
+    "relevant_chunks_indices": [0, 1, 30, 125, 152],
+    "description": "User looking for luxury hotels, especially Hotel Bellevue"
+  },
+  {
+    "query_id": "q2",
+    "query": "restaurants dining by the sea Mediterranean grill",
+    "relevant_chunks_indices": [5, 6, 7],
+    "description": "User interested in seaside dining and restaurant options"
+  },
+  {
+    "query_id": "q3",
+    "query": "Villa Hortensia Villa Mirasol ultra luxury villas",
+    "relevant_chunks_indices": [1, 2],
+    "description": "User seeking ultra luxury villa accommodations"
+  },
+  {
+    "query_id": "q4",
+    "query": "family hotel Vespera Aurora classic collection",
+    "relevant_chunks_indices": [2, 3],
+    "description": "User looking for family-friendly hotels in classic collection"
+  },
+  {
+    "query_id": "q5",
+    "query": "vacation packages special offers early booking gift voucher",
+    "relevant_chunks_indices": [4, 5],
+    "description": "User interested in special offers, packages and deals"
+  },
+  {
+    "query_id": "q6",
+    "query": "Vitality Hotel Punta wellness spa",
+    "relevant_chunks_indices": [2, 3],
+    "description": "User looking for wellness and vitality hotels"
+  },
+  {
+    "query_id": "q7",
+    "query": "what activities and experiences on Losinj archipelago",
+    "relevant_chunks_indices": [7, 8],
+    "description": "User interested in destination activities and experiences"
+  }
+]
