@@ -53,7 +53,20 @@ def load_file(path: str):
 # --------------------------
 
 def chunk_documents(documents, chunk_size=400, chunk_overlap=80):
-    splitter = RecursiveCharacterTextSplitter(
+    """
+    Split documents into chunks using token-based sizing.
+    
+    Args:
+        documents: List of LangChain Document objects
+        chunk_size: Size in tokens (not characters)
+        chunk_overlap: Overlap in tokens
+    
+    Returns:
+        List of chunked documents
+    """
+    # Use tiktoken encoder for token-based splitting
+    splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
+        model_name="gpt-4",
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
         separators=["\n\n", "\n", ".", " ", ""]
@@ -114,8 +127,14 @@ def save_chunks_to_json(chunks, output_path="chunks.json"):
 # --------------------------
 
 if __name__ == "__main__":
-    folder_path = "output"   # <-- put your folder name here
+    file_path = "output/losinj_rag_pages.json"
     output_path = "chunks.json"
 
-    chunks = load_and_chunk_folder(folder_path)
+    print(f"\n📁 Loading file: {file_path}\n")
+    documents = load_file(file_path)
+    print(f"Loaded {len(documents)} documents. Chunking...\n")
+    
+    chunks = chunk_documents(documents)
+    print(f"Generated {len(chunks)} chunks.\n")
+    
     save_chunks_to_json(chunks, output_path)
