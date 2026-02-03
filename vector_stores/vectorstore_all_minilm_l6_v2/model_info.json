@@ -1,6 +1,6 @@
 {
   "model_name": "sentence-transformers/all-MiniLM-L6-v2",
-  "num_documents": 304,
-  "creation_time": "2025-12-22 09:14:23",
-  "embedding_time_seconds": 4.12522292137146
+  "num_documents": 99,
+  "creation_time": "2026-02-02 17:49:57",
+  "embedding_time_seconds": 2.4046688079833984
 }

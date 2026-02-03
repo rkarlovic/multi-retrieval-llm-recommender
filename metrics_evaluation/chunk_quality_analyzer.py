@@ -105,12 +105,15 @@ class ChunkQualityAnalyzer:
         }
     
     @staticmethod
-    def detect_overlap(chunks: List[Dict], top_n: int = 20) -> Dict:
+    def detect_overlap(chunks: List[Dict], top_n: int | None = None) -> Dict:
         """Detect overlap between consecutive chunks."""
         overlaps = []
         
-        # Only check first N chunks for performance
-        check_count = min(top_n, len(chunks) - 1)
+        # Check all consecutive pairs unless a limit is provided
+        if top_n is None:
+            check_count = max(0, len(chunks) - 1)
+        else:
+            check_count = min(top_n, len(chunks) - 1)
         
         for i in range(check_count):
             chunk1 = chunks[i].get('content', '').lower()
@@ -280,10 +283,10 @@ def run_analysis():
     
     # 3. Overlap Analysis
     print("\n" + "-"*80)
-    print("3. OVERLAP ANALYSIS (First 20 consecutive chunk pairs)")
+    print("3. OVERLAP ANALYSIS (All consecutive chunk pairs)")
     print("-"*80)
     
-    overlap_stats = analyzer.detect_overlap(chunks)
+    overlap_stats = analyzer.detect_overlap(chunks, top_n=None)
     
     print(f"\nOverlap between consecutive chunks:")
     print(f"  Mean:           {overlap_stats['mean_overlap']:.2%}  (Target: 10-20%)")
