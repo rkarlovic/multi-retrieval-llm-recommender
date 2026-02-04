@@ -23,7 +23,6 @@ TOP_K_BGE = 10
 FINGERPRINT_LEN = 200
 REDUNDANCY_THRESHOLD = 0.85
 COHERE_RERANK_MODEL = "rerank-english-v3.0"
-# COHERE_RERANK_MODEL = "rerank-v4.0-pro"
 COHERE_TOP_K = 5
 
 co = cohere.ClientV2("Ebolg4Tx79anZgqfJK2BcrLnpXsuvcGeT1obe91V")
